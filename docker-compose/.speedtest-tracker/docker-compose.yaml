@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  speedtest-tracker:
+    container_name: speedtest-tracker
+    ports:
+     - '8080:80'
+     - '8443:443'
+#    environment:
+#      - PUID=0
+#      - PGID=0
+    volumes:
+      - './data:/config'
+      - './data/web:/etc/ssl/web'
+    image: 'ghcr.io/alexjustesen/speedtest-tracker:latest'
+    restart: unless-stopped
+    labels:
+      - traefik.enable=false
+      # - traefik.http.routers.speedtest-tracker.rule=PathPrefix(`/speedtest-tracker`)

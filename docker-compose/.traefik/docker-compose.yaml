@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    # command: 
+    #   - "--api.insecure=true"
+    #   - "--providers.docker"
+    #   - "--providers.docker.network=homer"
+    #   - "--providers.docker.defaultRule=PathPrefix(`/{{ normalize .Name }}`)"
+    #   - "--entrypoints.web=enabled"
+    #   - "--entrypoints.web.address=:80"
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/etc/traefik
+    networks:
+      - homer
+      - traefik
+    labels:
+      - "traefik.enable=true"
+
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
+    restart: unless-stopped
+    networks:
+      - homer
+      - traefik
+    labels:
+      - traefik.http.routers.whoami.rule=PathPrefix(`/whoami`)
+
+networks:
+  homer:
+    external: true
+  traefik:
+    external: false

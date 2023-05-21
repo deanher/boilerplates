@@ -1,0 +1,24 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: true
+entryPoints:
+  web:
+    address: :80
+
+  websecure:
+    address: :443
+log:
+ level: DEBUG
+accessLog:
+ filePath: /etc/traefik/log.txt
+api:
+  insecure: true
+
+providers:
+  file:
+    directory: /etc/traefik
+    watch: true
+  docker:
+    watch: true
+    network: homer
+    defaultRule: PathPrefix(`/{{ normalize .ContainerName }}`)

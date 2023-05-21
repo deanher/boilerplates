@@ -1,0 +1,4 @@
+.env
+**/querylog.json
+**/sessions.db
+**/stats.db

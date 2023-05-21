@@ -1,0 +1,26 @@
+services:
+  nginx:
+    image: nginx
+    container_name: nginx
+    volumes:
+     - ./templates:/etc/nginx/templates
+    # ports:
+    #  - "8080:80"
+    # environment:
+    #  - NGINX_HOST=foobar.com
+    #  - NGINX_PORT=80
+    networks:
+      - homer
+      - nginx
+    labels:
+      - traefik.http.routers.nginx.entrypoints=web,websecure
+      - traefik.http.routers.nginx.rule=PathPrefix(`/nginx`)
+      - traefik.http.routers.nginx.middlewares=nginx-stripprefix
+      - "traefik.http.middlewares.nginx-stripprefix.stripprefix.prefixes=/nginx"
+      - "traefik.http.middlewares.nginx-stripprefix.stripprefix.forceSlash=false"
+
+networks:
+  homer:
+    external: true
+  nginx:
+    external: false

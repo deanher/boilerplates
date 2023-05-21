@@ -1,0 +1,22 @@
+$TTL 2d
+
+$ORIGIN example.com.
+
+@             IN     SOA    ns.example.com. info.example.com. (
+                            2023051200     ; serial
+                            12h            ; refresh
+                            15m            ; retry
+                            3w             ; expire
+                            2h )           ; minimum TTL
+
+              IN     NS     ns.example.com.
+
+ns            IN     A      10.0.0.68
+
+; used to skip the hostname in the route, e.g. homeassistant.example.com
+@             IN     A      10.0.0.68
+*             IN     CNAME  example.com.
+
+; explicit host names, e.g. homeassistant.foo.example.com
+foo        IN     A      10.0.0.47
+*.foo      IN     A      10.0.0.47 

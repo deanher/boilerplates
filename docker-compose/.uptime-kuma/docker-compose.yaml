@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  uptime-kuma:
+    container_name: uptime-kuma
+    image: louislam/uptime-kuma:1
+    ports:
+      - "3001:3001"
+    networks:
+      - homer
+      - uptime-kuma_default
+    volumes:
+      - uptime-kuma:/app/data 
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  uptime-kuma:
+
+networks:
+  homer:
+    external: true
+  uptime-kuma_default:

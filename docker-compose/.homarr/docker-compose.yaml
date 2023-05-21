@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  homarr: 
+    container_name: homarr
+    image: ghcr.io/ajnart/homarr:latest
+    ports:
+      - 7575:7575
+    volumes: 
+      - ./configs:/app/data/configs
+      - ./icons:/app/public/icons
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - homer
+      - homarr
+    labels:
+      - traefik.enable=false
+      # - traefik.http.routers.homarr.rule=PathPrefix(`/homarr`)
+      # - traefik.http.routers.homarr.middlewares=homarr-stripprefix
+      # - "traefik.http.middlewares.homarr-stripprefix.stripprefix.prefixes=/homarr"
+
+networks:
+  homer:
+    external: true
+  homarr:
+    external: false
