@@ -1,0 +1,307 @@
+version: "3.9"
+
+    # volumes:
+    #   elasticsearch-data:
+
+services:
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+    networks:
+      - observability
+
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:latest
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - ES_TAGS_AS_FIELDS_ALL=true
+    ports:
+      - 5775:5775/udp
+      - 6831:6831/udp
+      - 6832:6832/udp
+      - 5778:5778
+      - 16686:16686
+      - 14268:14268
+      - 14250:14250
+      - 9411:9411
+    restart: unless-stopped
+    networks:
+      - observability
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    volumes:
+      - ./grafana/shared/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ./grafana/etc:/etc/grafana
+      - ./grafana/lib:/var/lib/grafana
+      - ./grafana/share:/usr/share/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    ports:
+      - 30000:3000
+    restart: unless-stopped
+    networks:
+      - observability
+
+  loki:
+    container_name: loki
+    image: grafana/loki:latest
+    ports:
+      - 3100:3100
+    # command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki/config:/loki
+      # For custom config
+      # - ./loki/config/custom:/etc/loki
+    restart: unless-stopped
+    networks:
+      - observability
+
+  # k6:
+  #   image: docker pull grafana/k6
+  #   container_name: k6
+
+  # promtail:
+  #   image: grafana/promtail:latest
+  #   container_name: promtail
+  #   volumes:
+  #     - ./promtail/log:/var/log
+  #     - ./promtail/config/config.yaml:/etc/promtail/config.yaml
+  #   ports:
+  #     - 9080:9080
+  #   command: -config.file=/etc/promtail/config.yaml
+  #   restart: unless-stopped
+  #   networks:
+  #     - observability
+
+  sql-express:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sqlexpress
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD
+      - MSSQL_PID=Express
+    volumes:
+      - ./sql/data:/var/opt/mssql/data
+    ports:
+      - 21433:1433
+    restart: always
+    networks:
+      - databases
+    env_file:
+      - .env
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - 22433:27017
+    restart: always
+    volumes:
+      - ./mongodb/data:/data/db
+      - ./mongodb/config:/etc/mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=plutoadmin
+      - MONGO_INITDB_ROOT_PASSWORD
+    networks:
+      - databases
+    env_file:
+      - .env
+
+  # grafana-agent:
+  #   image: grafana/agent:latest
+  #   container_name: grafan-agent
+  #   command: "-config.file=/etc/agent-config.yaml"
+  #   volumes:
+  #     - ./grafana/agent/agent-config.yaml:/etc/agent-config.yaml
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    ports:
+      - 6831:6831/udp
+      # - 14268:14268
+      - 9411:9411
+      - 14268:14268  # jaeger ingest
+      - 3200:3200   # tempo
+      - 4317:4317  # otlp grpc
+      - 4318:4318  # otlp http
+      # - 9411
+    volumes:
+      - ./tempo/config/tempo-local.yaml:/etc/tempo.yaml
+      - ./tempo/tmp:/tmp/tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    restart: unless-stopped
+    networks:
+      - observability
+
+  tempo-query:
+    image: grafana/tempo-query:latest
+    container_name: tempo-query
+    ports:
+      - 16686:16686
+    volumes:
+      - ./tempo/config/tempo-query.yaml:/etc/tempo-query.yaml
+    command: "--grpc-storage-plugin.configuration-file=/etc/tempo-query.yaml"
+    restart: unless-stopped
+    networks:
+      - observability
+
+  # elasticsearch:
+  #   container_name: elasticsearch
+  #   image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.0
+  #   environment:
+  #     #- http.host=0.0.0.0
+  #     #- xpack.monitoring.enabled=true
+  #     #- xpack.watcher.enabled=false
+  #     - discovery.type=single-node
+  #     - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  #     #- full_path_to/custom_elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+  #   volumes:
+  #     - ./elastic/data:/usr/share/elasticsearch/data
+  #   ports:
+  #     - 9200:9200
+  #     - 9300:9300
+  #   networks:
+  #     - observability
+  #   restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.9-management
+    container_name: rabbit
+    # command: --hostname rabbit1
+    hostname: testrabbit
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=test
+      - RABBITMQ_DEFAULT_PASS
+    volumes:
+      - ./rabbitmq/config/:/etc/rabbitmq/
+      - ./rabbitmq/data/:/var/lib/rabbitmq/
+      # - ./rabbitmq/home/:/opt/rabbitmq/
+    networks:
+      - messaging
+    restart: unless-stopped
+    env_file:
+      - .env
+    
+  postgres:
+    image: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_PASSWORD
+    networks:
+      - databases
+    env_file:
+      - .env
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 9080:8080
+    networks:
+      - databases
+
+networks:
+  observability:
+    name: elastic_observability
+  elastic:
+    name: elastic_observability
+  databases:
+  messaging:
+
+    # kibana:
+    #   container_name: kibana
+    #   image: docker.elastic.co/kibana/kibana:7.9.2
+    #   ports:
+    #     - 5601:5601
+    #   depends_on:
+    #     - elasticsearch
+    #   environment:
+    #     - ELASTICSEARCH_URL=http://localhost:9200
+    #   restart: unless-stopped
+    # networks:
+    #   - observability
+
+    # metricbeat:
+    #   image: docker.elastic.co/beats/metricbeat:7.9.2
+    #   command: metricbeat -e -strict.perms=false
+    #   # environment:
+    #   #   - setup.kibana.host=kibana:5601
+    #   #   - output.elasticsearch.hosts=["elasticsearch:9200"]
+    #   volumes:
+    #     - "./metricbeat.docker.yml:/usr/share/metricbeat/metricbeat.yml:ro"
+    #     - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    #     - "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro"
+    #     - "/proc:/hostfs/proc:ro"
+    #     - "/:/hostfs:ro"
+    #   networks:
+    #     - observability
+    # graylog:
+    #   image: graylog/graylog:4.0
+    #   environment:
+    #     - "GRAYLOG_HTTP_EXTERNAL_URI=http://localhost:9000/"
+    #   ports:
+    #     - "9000:9000"
+    #     - "12201:12201/udp"
+    #     - "1514:1514"
+    #   depends_on:
+    #     - "mongo"
+    #     - "elasticsearch"
+    #   links:
+    #     - "mongo:database"
+    #     - "elasticsearch:elastic"
+    #docker run --name promtail 
+    # --volume "$PWD/promtail:/etc/promtail" 
+    # --volume "/var/log:/var/log" grafana/promtail:master -config.file=/etc/promtail/config.yaml
+
+    # tempo-query:
+    #   image: grafana/tempo-query:latest
+    #   ports:
+    #     - "16686:16686"
+    #   volumes:
+    #     - "./tempo-query.yaml:/etc/tempo-query.yaml"
+    #   command: --grpc-storage-plugin.configuration-file=/etc/tempo-query.yaml
+    #   networks:
+    #     - observability
+
+    # mongo:
+    #   image: mongo:latest
+    #   # ports:
+    #   #   - "27017:27017"
+    #   restart: always
+
+    # elasticsearch:
+    #   image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.0
+    #   environment:
+    #     - http.host=0.0.0.0
+    #     - discovery.type=single-node
+    #     - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    #   ports:
+    #     - "9200:9200"
+    #     - "9300:9300"
+
+    # kibana:
+    #   image: docker.elastic.co/kibana/kibana:7.10.0
+    #   environment:
+    #     - SERVER_HOST=0.0.0.0
+    #   ports:
+    #     - "5601:5601"
+    #   links:
+    #     - elasticsearch

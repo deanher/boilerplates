@@ -1,0 +1,51 @@
+global:
+  scrape_interval: 15s # By default, scrape targets every 15 seconds.
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    monitor: 'codelab-monitor'
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'PlutoApi (Local)'
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+    metrics_path: '/metrics'
+    # scheme: https
+    static_configs:
+      # - targets: ['host.docker.internal:7256', 'host.docker.internal:443','localhost:7256']
+      - targets: ['host.docker.internal:5256', 'host.docker.internal:80', 'localhost:5256']
+      # - targets: ['host.docker.internal:80', 'host.docker.internal:443']
+      # - targets: ['localhost:5256', 'https://localhost:7256']
+
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'PlutoApi (Prod)'
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+    metrics_path: '/metrics'
+    scheme: https
+    static_configs:
+      - targets: ['pluto-api.azurewebsites.net']
+
+  - job_name: 'checkly'
+    scrape_interval: 30s
+    metrics_path: '/accounts/e24662a9-dcd1-424e-87cf-cb4a6c91bdae/prometheus/metrics'
+    bearer_token: 'wMgx5wEEI9JqH5OUDWvzsUVz'
+    scheme: https
+    static_configs:
+      - targets: ['api.checklyhq.com']
+
+remote_write:
+  - url: 'https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push'
+    basic_auth:
+      username: '326366'
+      password: 'eyJrIjoiMDIzZGZiOTNmMWM4MWYzYTczZjFmNjQzZDZlZTYxOTY1MTJlY2RmOSIsIm4iOiJsb2NhbF9kZXYiLCJpZCI6NTk5NTYyfQ=='

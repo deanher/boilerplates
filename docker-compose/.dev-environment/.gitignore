@@ -1,0 +1,8 @@
+etc/
+lib/
+share/
+loki/config/
+mongodb/data/
+promtail/log/
+data/
+tmp/

@@ -1,0 +1,77 @@
+version: "3.9"
+
+services:
+  plex:
+    image: plexinc/pms-docker:latest
+    container_name: plex
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      - HOSTNAME=pve
+      - TZ=Europe/Berlin
+      - PLEX_CLAIM=claim-46hfzML7yx6WzxUB3TUX
+      - PLEX_UID=1000
+      - PLEX_GID=1000
+      - ADVERTISE_IP=10.0.0.55
+    # network_mode: host
+    ports:
+      - 3005:3005/tcp
+      - 8324:8324/tcp
+      - 32469:32469/tcp
+      - 1900:1900/udp
+      - 32410:32410/udp
+      - 32412:32412/udp
+      - 32413:32413/udp
+      - 32414:32414/udp
+      - 32400:32400/tcp
+    volumes:
+      - ./data/plex/config:/config
+      - ./data/plex/cache:/cache
+      - ./data/plex/transcode:/transcode
+      - /mnt/storage/media/Movies:/media/movies
+      - /mnt/storage/media/TV Shows:/media/tv
+      - /mnt/storage/media/Other:/media/other
+    networks:
+      - plex
+    # command:
+    #   - sysctl net.ipv4.conf.all.forwarding=1
+    #   - sysctl net.ipv6.conf.all.forwarding=1
+    #   - sudo iptables -P FORWARD ACCEPT
+
+  jellyfin:
+    image: ghcr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    pull_policy: always
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - JELLYFIN_PublishedServerUrl=10.0.0.55
+    ports:
+      - 8920:8920 #optional
+      - 7359:7359/udp #optional
+      - 19000:1900/udp #optional
+      - 8096:8096
+    volumes:
+      - ./data/jellyfin/config:/config
+      - ./data/jellyfin/cache:/cache
+      - ./data/jellyfin/plugins:/var/lib/jellyfin/plugins/
+      - /mnt/storage/media/Movies:/media/movies
+      - /mnt/storage/media/TV Shows:/media/tv
+      - /mnt/storage/media/Other:/media/other
+    networks:
+      - jellyfin
+    # devices:
+    #   - /dev/dri:/dev/dri #optional
+    #   - /dev/vcsm:/dev/vcsm #optional
+    #   - /dev/vchiq:/dev/vchiq #optional
+    #   - /dev/video10:/dev/video10 #optional
+    #   - /dev/video11:/dev/video11 #optional
+    #   - /dev/video12:/dev/video12 #optional
+    restart: unless-stopped
+
+networks:
+  plex:
+      name: media_apps
+  jellyfin:
+      name: media_apps
