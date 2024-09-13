@@ -1,6 +1,119 @@
-version: "3.9"
+networks:
+  media_app_network: 
+    external: true
 
 services:
+  surfshark:
+    image: ilteoood/docker-surfshark
+    container_name: surfshark
+    pull_policy: always
+    environment:
+      - SURFSHARK_USER=$SURFSHARK_USER
+      - SURFSHARK_PASSWORD=$SURFSHARK_PASSWORD
+      - SURFSHARK_COUNTRY=de
+      - SURFSHARK_CITY=fra
+      - CONNECTION_TYPE=udp
+      - OVPN_CONFIGS=/config/surfshark_config.zip
+      - ENABLE_KILL_SWITCH=yes
+      - LAN_NETWORK=192.168.178.0/24
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    ports:
+      - 1080:1080 #if you want to use the socks5 server
+      - 9091:9091 # transmission
+      - 8980:8980 # sabnzbd
+      - 8989:8989 # sonarr
+      - 7878:7878 # couch potato
+    restart: unless-stopped
+    volumes: 
+      - /home/mediaservers/sonarr/Surfshark_Config.zip:/config/surfshark_config.zip
+    env_file:
+      - '/home/mediaservers/sonarr/.env'
+    dns:
+      - 1.1.1.1
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    pull_policy: always
+    environment:
+      - PUID=65534
+      - PGID=100
+      - TZ=Europe/Berlin
+    volumes:
+      - /home/mediaservers/sonarr:/config
+      - /mnt/storage/media/TV Shows:/tv #optional
+      - /mnt/storage/downloads/sabnzbd:/downloads #optional
+    # ports:
+    #   - 8989:8989
+    restart: unless-stopped
+    depends_on:
+      - surfshark
+    network_mode: service:surfshark
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    pull_policy: always
+    environment:
+      - PUID=65534
+      - PGID=100
+      - TZ=Etc/UTC
+    volumes:
+      - /home/mediaservers/radarr:/config
+      - /mnt/storage/media/Movies:/movies #optional
+      - /mnt/storage/downloads/sabnzbd:/downloads #optional
+    # ports:
+    #   - 7878:7878
+    restart: unless-stopped
+    depends_on:
+      - surfshark
+    network_mode: service:surfshark    
+    
+  # transmission:
+  #   image: linuxserver/transmission
+  #   container_name: transmission
+  #   pull_policy: always
+  #   environment:
+  #     - PUID=65534
+  #     - PGID=100
+  #     - TZ=Europe/Berlin
+  #   volumes:
+  #     - /home/mediaservers/mediaservers/transmission:/config
+  #     - /mnt/storage/downloads/transmission:/downloads
+  #     - /mnt/storage/watch/transmission:/watch
+  #   # ports:
+  #   #   - 9091:9091 needed to access transmission's GUI
+  #   #   - 51413:51413
+  #   #   - 51413:51413/udp
+  #   depends_on:
+  #     - surfshark
+  #   network_mode: service:surfshark
+  #   restart: unless-stopped
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    pull_policy: always
+    environment:
+      - PUID=65534
+      - PGID=100
+      - TZ=Europe/Berlin
+      # - NZBGET_USER=nzbget #optional
+      # - NZBGET_PASS=tegbzn6789 #optional
+    volumes:
+      - /home/mediaservers/sabnzbd:/config
+      - /mnt/storage/downloads/sabnzbd:/config/Downloads #optional
+      - /mnt/storage/watch/sabnzbd:/watch
+    depends_on:
+      - surfshark
+    network_mode: service:surfshark
+    # ports:
+    #   - 8080:8080
+    restart: unless-stopped
+
   plex:
     image: plexinc/pms-docker:latest
     container_name: plex
@@ -10,9 +123,9 @@ services:
       - HOSTNAME=pve
       - TZ=Europe/Berlin
       - PLEX_CLAIM=claim-46hfzML7yx6WzxUB3TUX
-      - PLEX_UID=1000
-      - PLEX_GID=1000
-      - ADVERTISE_IP=10.0.0.55
+      - PLEX_UID=0
+      - PLEX_GID=0
+      - ADVERTISE_IP=192.168.178.55
     # network_mode: host
     ports:
       - 3005:3005/tcp
@@ -25,14 +138,14 @@ services:
       - 32414:32414/udp
       - 32400:32400/tcp
     volumes:
-      - ./data/plex/config:/config
-      - ./data/plex/cache:/cache
-      - ./data/plex/transcode:/transcode
-      - /mnt/storage/media/Movies:/media/movies
-      - /mnt/storage/media/TV Shows:/media/tv
-      - /mnt/storage/media/Other:/media/other
+      - /home/mediaservers/plex/config:/config
+      - /home/mediaservers/plex/cache:/cache
+      - /home/mediaservers/plex/transcode:/transcode
+      - /mnt/storage/media:/data
+      # - \\wsl.localhost\Ubuntu\mnt\wsl\PHYSICALDRIVE1p2\Videos:/data_2
+      # - "C:/Users/Dean/AppData/Roaming/Microsoft/Windows/Network Shortcuts/terra/Videos:/data_3"
     networks:
-      - plex
+      - media_app_network
     # command:
     #   - sysctl net.ipv4.conf.all.forwarding=1
     #   - sysctl net.ipv6.conf.all.forwarding=1
@@ -46,21 +159,21 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Berlin
-      - JELLYFIN_PublishedServerUrl=10.0.0.55
+      - JELLYFIN_PublishedServerUrl=192.168.178.55
     ports:
       - 8920:8920 #optional
       - 7359:7359/udp #optional
       - 19000:1900/udp #optional
       - 8096:8096
     volumes:
-      - ./data/jellyfin/config:/config
-      - ./data/jellyfin/cache:/cache
-      - ./data/jellyfin/plugins:/var/lib/jellyfin/plugins/
+      - /home/mediaservers/jellyfin/config:/config
+      - /home/mediaservers/jellyfin/cache:/cache
+      - /home/mediaservers/jellyfin/plugins:/var/lib/jellyfin/plugins/
       - /mnt/storage/media/Movies:/media/movies
       - /mnt/storage/media/TV Shows:/media/tv
       - /mnt/storage/media/Other:/media/other
     networks:
-      - jellyfin
+      - media_app_network
     # devices:
     #   - /dev/dri:/dev/dri #optional
     #   - /dev/vcsm:/dev/vcsm #optional
@@ -70,8 +183,25 @@ services:
     #   - /dev/video12:/dev/video12 #optional
     restart: unless-stopped
 
-networks:
-  plex:
-      name: media_apps
-  jellyfin:
-      name: media_apps
+  jellyplex-watched:
+    image: luigi311/jellyplex-watched:latest
+    pull_policy: always
+    container_name: jellyplex
+    volumes:
+      - '/home/mediaservers/jellyplex/.env:/app/.env'
+    restart: unless-stopped
+    networks:
+      - media_app_network
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    pull_policy: always
+    container_name: flaresolverr
+    ports:
+      - 8191:8191
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=Europe/Berlin
+    restart: unless-stopped
+    networks:
+      - media_app_network
